@@ -128,7 +128,6 @@ body{font-family:'DM Sans',sans-serif;background:#fff;max-width:430px;margin:0 a
 <div id="hdr">
   <div id="hdr-top">
     <button id="btn-export" onclick="doExport()" title="Export">↓</button>
-    <button onclick="debugDB()" style="width:36px;height:36px;border-radius:11px;background:#FFE0E0;border:none;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">DB</button>
     <div id="sync-dot"></div>
     <div id="nav-center">
       <button class="arr" id="btn-prev">‹</button>
@@ -248,11 +247,7 @@ async function sbGet(key) {
   return typeof val === 'string' ? JSON.parse(val) : val;
 }
 
-async function debugDB() {
-  const r = await fetch(`${SB_URL}/rest/v1/timeline_data?select=key,value`, { headers: SB_H });
-  const j = await r.json();
-  alert('DB:\n' + JSON.stringify(j, null, 2).substring(0, 1500));
-}
+
 
 async function sbSet(key, value) {
   const r = await fetch(`${SB_URL}/rest/v1/timeline_data`, {
@@ -281,6 +276,7 @@ async function initRemote() {
     console.error('initRemote failed:', e.message);
     syncDot('error');
   }
+  _loaded = true; // now safe to write
   rebuildTimeline();
   DAY.scrollTop = dateToY(todayStr());
   weekBaseStr = mondayOf(yToDateStr(DAY.scrollTop));
@@ -303,7 +299,10 @@ let deadlines = [];
 let checked   = {};
 
 let _sbTimer = null;
+let _loaded = false; // guard: don't write to DB before we've read from it
+
 function persist() {
+  if (!_loaded) return; // never overwrite DB before we've loaded from it
   clearTimeout(_sbTimer);
   _sbTimer = setTimeout(async () => {
     syncDot('saving');
