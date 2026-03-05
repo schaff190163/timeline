@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>Timeline</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+body{font-family:'DM Sans',sans-serif;background:#fff;max-width:430px;margin:0 auto;height:100dvh;overflow:hidden;display:flex;flex-direction:column;color:#111;}
+
+/* ── HEADER ── */
+#hdr{flex-shrink:0;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-bottom:1px solid #EBEBEB;padding:44px 18px 12px;z-index:50;}
+#hdr-top{display:flex;align-items:center;gap:8px;margin-bottom:12px;}
+#btn-export{width:36px;height:36px;border-radius:11px;background:#F2F2F2;border:none;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+#sync-dot{width:8px;height:8px;border-radius:50%;background:#DDD;flex-shrink:0;transition:background .4s;}
+#nav-center{flex:1;display:flex;align-items:center;gap:6px;min-width:0;}
+.arr{width:30px;height:30px;border-radius:9px;border:1.5px solid #E5E5E5;background:#fff;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.arr:active{background:#F0F0F0;}
+#hdr-date{flex:1;text-align:center;min-width:0;}
+#hdr-wd{font-size:10px;font-weight:700;color:#AAA;text-transform:uppercase;letter-spacing:.12em;}
+#hdr-d{font-family:'Playfair Display',serif;font-size:20px;line-height:1.2;}
+#btn-add{width:36px;height:36px;border-radius:11px;background:#111;border:none;color:#fff;font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px rgba(0,0,0,.2);}
+#hdr-bot{display:flex;justify-content:space-between;align-items:center;}
+#view-tabs{display:flex;background:#F2F2F2;border-radius:10px;padding:3px;}
+.vtab{padding:5px 16px;border-radius:8px;border:none;cursor:pointer;background:transparent;color:#AAA;font-weight:500;font-size:12px;font-family:'DM Sans',sans-serif;transition:all .15s;}
+.vtab.on{background:#fff;color:#111;font-weight:700;box-shadow:0 1px 6px rgba(0,0,0,.1);}
+#btn-today{padding:4px 12px;border-radius:99px;background:#F0F0F0;border:none;font-size:11px;font-weight:700;color:#AAA;cursor:pointer;font-family:'DM Sans',sans-serif;visibility:hidden;}
+#btn-today.show{visibility:visible;}
+
+/* ── DAY VIEW ── */
+#day-wrap{flex:1;overflow-y:scroll;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+#tl{position:relative;width:100%;}
+
+/* grid lines */
+.hr-row{position:absolute;left:0;right:0;display:flex;align-items:center;pointer-events:none;}
+.hr-lbl{width:56px;text-align:right;padding-right:10px;font-size:10px;font-weight:700;color:#D5D5D5;font-variant-numeric:tabular-nums;flex-shrink:0;}
+.hr-line{flex:1;height:1px;background:#F3F3F3;}
+.day-sep{position:absolute;left:0;right:0;height:2px;background:linear-gradient(to right,transparent,#DEDEDE 20%,#DEDEDE 80%,transparent);pointer-events:none;}
+.day-lbl{position:absolute;left:4px;z-index:8;pointer-events:none;}
+.day-pill{display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 4px;border-radius:0 0 9px 9px;background:rgba(255,255,255,.9);backdrop-filter:blur(6px);}
+.day-pill.is-today{background:rgba(17,17,17,.9);}
+.dp-wd{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#AAA;}
+.dp-d{font-family:'Playfair Display',serif;font-size:13px;color:#111;}
+.day-pill.is-today .dp-wd,.day-pill.is-today .dp-d{color:#fff;}
+
+/* vertical line */
+.vline{position:absolute;width:2.5px;background:#111;border-radius:99px;z-index:2;pointer-events:none;}
+
+/* deadline bars */
+.dl-bar{position:absolute;border-radius:3px;z-index:3;cursor:pointer;opacity:.45;transition:opacity .15s;}
+.dl-bar:hover{opacity:.75;}
+
+/* now indicator */
+#now-dot{position:absolute;width:10px;height:10px;border-radius:50%;background:#FF3B30;z-index:25;box-shadow:0 0 0 3px rgba(255,59,48,.2);transform:translate(-50%,-50%);pointer-events:none;}
+#now-line{position:absolute;right:0;height:2px;background:rgba(255,59,48,.55);z-index:20;pointer-events:none;}
+
+/* events */
+.ev{position:absolute;display:flex;align-items:flex-start;cursor:pointer;z-index:10;}
+.ev-pill{border-radius:99px;background:#111;flex-shrink:0;box-shadow:0 2px 10px rgba(0,0,0,.18);transition:opacity .15s;}
+.ev-pill:active,.ev-circle:active{opacity:.6;}
+.ev-circle{border-radius:50%;flex-shrink:0;cursor:pointer;}
+.ev-circle.filled{background:#111;box-shadow:0 2px 8px rgba(0,0,0,.15);}
+.ev-circle.empty{background:#fff;border:2.5px solid #111;}
+.ev-circle.done{background:#111;display:flex;align-items:center;justify-content:center;}
+.ev-lbl{padding-left:10px;pointer-events:none;}
+.ev-title{font-family:'Playfair Display',serif;font-size:13px;font-weight:700;color:#111;line-height:1.25;}
+.ev-sub{font-size:10px;color:#AAA;margin-top:1px;}
+.ev-title.struck,.ev-todo-txt.struck{text-decoration:line-through;color:#CCC;}
+
+/* ── WEEK VIEW ── */
+#week-wrap{display:none;flex:1;overflow-y:auto;padding:14px 16px 80px;}
+#wk-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:14px;}
+.wk-day{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 2px;border-radius:11px;cursor:pointer;background:#fff;border:1.5px solid #EBEBEB;transition:all .15s;}
+.wk-day:active{background:#F5F5F5;}
+.wk-day.today{background:#111;border-color:#111;}
+.wk-day.cur{border-color:#111;border-width:2px;}
+.wk-day-wd{font-size:9px;font-weight:700;color:#AAA;text-transform:uppercase;}
+.wk-day-n{font-size:15px;font-weight:700;color:#111;}
+.wk-day.today .wk-day-wd,.wk-day.today .wk-day-n{color:#fff;}
+.wk-dot{width:4px;height:4px;border-radius:50%;background:#CCC;margin-top:1px;}
+.wk-day.today .wk-dot{background:rgba(255,255,255,.5);}
+.wk-dl-hd{font-size:10px;font-weight:700;color:#CCC;text-transform:uppercase;letter-spacing:.1em;margin:4px 0 10px;}
+.wk-dl-row{padding:10px 0;border-bottom:1px solid #F5F5F5;cursor:pointer;}
+.wk-dl-bar{height:5px;border-radius:99px;margin:5px 0 3px;}
+.wk-dl-name{font-size:13px;color:#333;font-weight:600;}
+.wk-dl-dates{font-size:11px;font-weight:600;margin-top:2px;}
+
+/* ── SHEET ── */
+#overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);backdrop-filter:blur(6px);z-index:200;align-items:flex-end;justify-content:center;}
+#overlay.open{display:flex;}
+#sheet{background:#fff;border-radius:22px 22px 0 0;width:100%;max-width:430px;padding:18px 20px 48px;box-shadow:0 -8px 40px rgba(0,0,0,.15);max-height:88dvh;overflow-y:auto;}
+.sh-handle{width:36px;height:4px;background:#DDD;border-radius:99px;margin:0 auto 16px;}
+.sh-title{font-family:'Playfair Display',serif;font-size:21px;font-weight:700;color:#111;margin-bottom:13px;}
+.sh-badge{font-size:10px;font-weight:700;color:#AAA;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;}
+.fl{font-size:10px;font-weight:700;color:#BBB;text-transform:uppercase;margin-bottom:4px;}
+.fi{width:100%;padding:11px 12px;border-radius:11px;border:1.5px solid #EBEBEB;font-size:14px;background:#FAFAFA;outline:none;font-family:'DM Sans',sans-serif;color:#111;margin-bottom:10px;}
+.fi:focus{border-color:#999;}
+.type-row{display:flex;gap:5px;margin-bottom:13px;}
+.tb{flex:1;padding:8px 2px;border-radius:10px;border:2px solid #E5E5E5;background:#fff;color:#AAA;font-weight:700;font-size:10px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .15s;line-height:1.3;text-align:center;}
+.tb.on{background:#111;border-color:#111;color:#fff;}
+.r2{display:flex;gap:8px;margin-bottom:10px;}
+.c1{flex:1;}
+.btn-row{display:flex;gap:8px;margin-top:8px;}
+.bc{flex:1;padding:12px;border-radius:12px;border:1.5px solid #E5E5E5;background:#fff;color:#888;font-weight:600;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.bs{flex:2;padding:12px;border-radius:12px;border:none;background:#111;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.bf{width:100%;margin-top:10px;padding:12px;border-radius:12px;border:none;background:#111;color:#fff;font-weight:700;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.bdel{width:100%;margin-top:7px;padding:10px;border-radius:12px;background:#fff;color:#FF3B30;border:1.5px solid #FFD0CE;font-weight:600;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;}
+.stat-row{display:flex;gap:6px;margin-bottom:12px;}
+.stat{flex:1;padding:9px 6px;background:#F5F5F5;border-radius:11px;text-align:center;}
+.stat-l{font-size:9px;color:#AAA;font-weight:700;text-transform:uppercase;margin-bottom:2px;}
+.stat-v{font-size:15px;font-weight:700;color:#111;}
+.todo-row{display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #F5F5F5;}
+.todo-row:last-of-type{border-bottom:none;}
+.tcb{width:22px;height:22px;border-radius:7px;border:2.5px solid #CCC;background:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all .15s;}
+.tcb.on{background:#111;border-color:#111;}
+.tcb.on::after{content:"✓";color:#fff;font-size:11px;font-weight:800;}
+.ev-todo-txt{flex:1;font-size:14px;color:#222;font-weight:500;}
+.tdel{width:26px;height:26px;border-radius:7px;border:1.5px solid #EEE;background:#fff;color:#CCC;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.tdel:hover{border-color:#FF3B30;color:#FF3B30;}
+.csw{width:29px;height:29px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:all .15s;flex-shrink:0;}
+.csw.on{border-color:#111;transform:scale(1.15);}
+.c-row{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px;}
+</style>
+</head>
+<body>
+
+<div id="hdr">
+  <div id="hdr-top">
+    <button id="btn-export" onclick="doExport()" title="Export">↓</button>
+    <button onclick="debugDB()" style="width:36px;height:36px;border-radius:11px;background:#FFE0E0;border:none;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;">DB</button>
+    <div id="sync-dot"></div>
+    <div id="nav-center">
+      <button class="arr" id="btn-prev">‹</button>
+      <div id="hdr-date">
+        <div id="hdr-wd"></div>
+        <div id="hdr-d"></div>
+      </div>
+      <button class="arr" id="btn-next">›</button>
+    </div>
+    <button id="btn-add" onclick="openAdd()">+</button>
+  </div>
+  <div id="hdr-bot">
+    <div id="view-tabs">
+      <button class="vtab on" id="tab-day" onclick="setView('day')">Tag</button>
+      <button class="vtab" id="tab-week" onclick="setView('week')">Woche</button>
+    </div>
+    <button id="btn-today" onclick="todayClick()">Heute</button>
+  </div>
+</div>
+
+<div id="day-wrap"><div id="tl"></div></div>
+<div id="week-wrap">
+  <div id="wk-grid"></div>
+  <div class="wk-dl-hd" id="wk-dl-hd"></div>
+  <div id="wk-dl-list"></div>
+</div>
+
+<div id="overlay" onclick="overlayClick(event)"><div id="sheet"></div></div>
+
+<script>
+window.onerror = (msg, src, line, col, err) => {
+  alert('JS ERROR line ' + line + ': ' + msg);
+};
+// ══════════════════════════════════════════════════════════
+//  DATE UTILITIES
+//  Key design: all dates are stored/compared as "YYYY-MM-DD"
+//  strings in LOCAL time. No UTC conversions.
+// ══════════════════════════════════════════════════════════
+function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+function todayStr() { return localDateStr(); }
+function parseDate(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d); // LOCAL midnight — no timezone issues
+}
+function addDays(s, n) {
+  const d = parseDate(s);
+  d.setDate(d.getDate() + n);
+  return localDateStr(d);
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
+function fmtTime(h, m) { return `${pad2(h)}:${pad2(m)}`; }
+function fmtDateShort(s) {
+  return parseDate(s).toLocaleDateString('de-AT', { day: 'numeric', month: 'short' });
+}
+function mondayOf(s) {
+  const d = parseDate(s);
+  const dow = (d.getDay() + 6) % 7; // 0=Mon
+  d.setDate(d.getDate() - dow);
+  return localDateStr(d);
+}
+
+// ══════════════════════════════════════════════════════════
+//  LAYOUT CONSTANTS
+// ══════════════════════════════════════════════════════════
+const HOUR_H    = 80;   // px per hour
+const DAY_H     = 24 * HOUR_H;
+const LINE_X    = 66;   // px from left for vertical line
+const PILL_W    = 22;
+const TODO_GAP  = 32;
+const DAYS_PRE  = 60;
+const DAYS_POST = 120;
+
+// Origin: the absolute Y=0 corresponds to midnight of (today - DAYS_PRE)
+// Computed once, never changes during session.
+const ORIGIN_STR = addDays(todayStr(), -DAYS_PRE);
+const ORIGIN_D   = parseDate(ORIGIN_STR);
+
+function dateToY(dateStr, h = 0, m = 0) {
+  const d = parseDate(dateStr);
+  const days = Math.round((d - ORIGIN_D) / 86400000); // integer days, no DST issues
+  return days * DAY_H + h * HOUR_H + m * (HOUR_H / 60);
+}
+function yToDateStr(y) {
+  const days = Math.floor(y / DAY_H);
+  return addDays(ORIGIN_STR, days);
+}
+// Which date is at the very top of the scroll viewport?
+function scrollDate() {
+  return yToDateStr(DAY.scrollTop);
+}
+
+// ══════════════════════════════════════════════════════════
+//  SUPABASE
+// ══════════════════════════════════════════════════════════
+const SB_URL = 'https://lwdbnfqirtxtudkjxwdv.supabase.co';
+const SB_KEY = 'sb_publishable_tDG-B8-RGTrUiWR53pAdWA_Qfls_FAD';
+const SB_H = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SB_KEY };
+
+async function sbGet(key) {
+  const r = await fetch(`${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}&key=eq.${key}&select=value`, { headers: SB_H });
+  if (!r.ok) throw new Error(`sbGet ${key}: ${r.status}`);
+  const j = await r.json();
+  if (!j || !j[0]) return null;
+  const val = j[0].value;
+  if (typeof val === 'string') return JSON.parse(val);
+  return val;
+}
+
+async function debugDB() {
+  const r = await fetch(`${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}&select=key,value`, { headers: SB_H });
+  const j = await r.json();
+  alert('DB Inhalt:\n' + JSON.stringify(j, null, 2).substring(0, 1000));
+}
+async function sbSet(key, value) {
+  try {
+    await fetch(`${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}`, {
+      method: 'POST',
+      headers: { ...SB_H, Prefer: 'resolution=merge-duplicates' },
+      body: JSON.stringify({ key, value: JSON.stringify(value) })
+    });
+  } catch {}
+}
+
+function syncDot(state) {
+  const el = document.getElementById('sync-dot');
+  el.style.background = state === 'saving' ? '#FECA57' : state === 'ok' ? '#4ECDC4' : '#DDD';
+  if (state === 'ok') setTimeout(() => el.style.background = '#DDD', 2000);
+}
+
+// ══════════════════════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════════════════════
+
+
+const DL_COLORS = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FECA57','#FF9FF3','#54A0FF','#A29BFE'];
+
+function loadLocal() { return { events: [], deadlines: [] }; }
+function saveLocal() { /* no-op: Supabase is the only store */ }
+
+let { events, deadlines } = loadLocal();
+let checked = {};
+
+let _sbTimer = null;
+function persist() {
+  clearTimeout(_sbTimer);
+  _sbTimer = setTimeout(async () => {
+    syncDot('saving');
+    await sbSet('timeline_data', { events, deadlines });
+    await sbSet('timeline_checked', checked);
+    _sbTimer = null;
+    syncDot('ok');
+  }, 800);
+}
+
+async function initRemote() {
+  syncDot('saving');
+  try {
+    const url = `${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}&key=eq.timeline_data&select=value`;
+    const r = await fetch(url, { headers: SB_H });
+    console.log('Status:', r.status);
+    const j = await r.json();
+    console.log('RAW RESPONSE:', JSON.stringify(j));
+    if (j && j[0] && j[0].value) {
+      const parsed = typeof j[0].value === 'string' ? JSON.parse(j[0].value) : j[0].value;
+      console.log('PARSED:', parsed);
+      if (Array.isArray(parsed.events)) {
+        events = parsed.events;
+        deadlines = parsed.deadlines || [];
+        console.log('EVENTS SET:', events.length);
+      }
+    }
+    const url2 = `${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}&key=eq.timeline_checked&select=value`;
+    const r2 = await fetch(url2, { headers: SB_H });
+    const j2 = await r2.json();
+    if (j2 && j2[0] && j2[0].value) {
+      checked = typeof j2[0].value === 'string' ? JSON.parse(j2[0].value) : j2[0].value;
+    }
+    syncDot('ok');
+  } catch(e) {
+    console.error('FETCH ERROR:', e);
+    syncDot('error');
+  }
+  console.log('REBUILDING with', events.length, 'events');
+  rebuildTimeline();
+  DAY.scrollTop = dateToY(todayStr());
+  weekBaseStr = mondayOf(yToDateStr(DAY.scrollTop));
+  updateHeader();
+}
+
+// ══════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════
+const DAY  = document.getElementById('day-wrap');
+const WEEK = document.getElementById('week-wrap');
+let activeView = 'day';
+let weekBaseStr = mondayOf(todayStr()); // Monday of currently shown week
+
+// ══════════════════════════════════════════════════════════
+//  TIMELINE RENDER
+// ══════════════════════════════════════════════════════════
+function rebuildTimeline() {
+  const tl = document.getElementById('tl');
+  const savedScroll = DAY.scrollTop;
+  tl.innerHTML = '';
+  const totalDays = DAYS_PRE + DAYS_POST + 1;
+  tl.style.height = (totalDays * DAY_H + 80) + 'px';
+
+  const today = todayStr();
+
+  for (let di = 0; di < totalDays; di++) {
+    const ds = addDays(ORIGIN_STR, di);
+    const dayY = di * DAY_H;
+    const isToday = ds === today;
+    const d = parseDate(ds);
+
+    // Day separator
+    const sep = mk('div', 'day-sep');
+    sep.style.top = dayY + 'px';
+    tl.appendChild(sep);
+
+    // Day label
+    const dlbl = mk('div', 'day-lbl');
+    dlbl.style.top = (dayY + 3) + 'px';
+    const pill = mk('div', 'day-pill' + (isToday ? ' is-today' : ''));
+    pill.innerHTML = `<span class="dp-wd">${d.toLocaleDateString('de-AT',{weekday:'short'})}</span><span class="dp-d">${d.getDate()}. ${d.toLocaleDateString('de-AT',{month:'short'})}</span>`;
+    dlbl.appendChild(pill);
+    tl.appendChild(dlbl);
+
+    // Hour lines
+    for (let h = 0; h < 24; h++) {
+      const row = mk('div', 'hr-row');
+      row.style.top = (dayY + h * HOUR_H) + 'px';
+      row.innerHTML = `<span class="hr-lbl">${h === 0 ? '' : pad2(h)}</span><div class="hr-line"></div>`;
+      tl.appendChild(row);
+    }
+
+    // Vertical line
+    const vl = mk('div', 'vline');
+    vl.style.cssText = `left:${LINE_X}px;top:${dayY}px;height:${DAY_H}px;`;
+    tl.appendChild(vl);
+
+    // Deadline bars for this day
+    const dayDls = deadlines.filter(dl => dl.startDate <= ds && dl.endDate >= ds);
+    dayDls.forEach((dl, i) => {
+      const bar = mk('div', 'dl-bar');
+      bar.style.cssText = `left:${18 + i * 13}px;top:${dayY}px;width:8px;height:${DAY_H}px;background:${dl.color};`;
+      bar.onclick = () => openEditDeadline(dl);
+      tl.appendChild(bar);
+    });
+
+    // Events
+    const dayEvs = events.filter(e => e.date === ds);
+    renderDayEvents(tl, dayEvs, dayY, ds);
+  }
+
+  // Now indicator
+  const now = new Date();
+  const nowY = dateToY(today, now.getHours(), now.getMinutes());
+  const dot = mk('div'); dot.id = 'now-dot';
+  dot.style.cssText = `top:${nowY}px;left:${LINE_X}px;`;
+  tl.appendChild(dot);
+  const nl = mk('div'); nl.id = 'now-line';
+  nl.style.cssText = `top:${nowY}px;left:${LINE_X + 5}px;`;
+  tl.appendChild(nl);
+
+  DAY.scrollTop = savedScroll;
+}
+
+function renderDayEvents(tl, dayEvs, dayY, ds) {
+  // Separate todos from fixed events
+  const fixed = dayEvs.filter(e => e.type !== 'todo').sort((a,b) => a.startH*60+a.startM - (b.startH*60+b.startM));
+  const todos = dayEvs.filter(e => e.type === 'todo').sort((a,b) => a.startH*60+a.startM - (b.startH*60+b.startM));
+
+  fixed.forEach(ev => {
+    if (ev.type === 'fixedDuration') {
+      const y = dayY + ev.startH * HOUR_H + ev.startM * (HOUR_H/60);
+      const h = Math.max(18, ((ev.endH*60+ev.endM) - (ev.startH*60+ev.startM)) / 60 * HOUR_H);
+      const wrap = mk('div', 'ev');
+      wrap.style.cssText = `top:${y}px;left:${LINE_X - PILL_W/2}px;align-items:flex-start;`;
+      wrap.onclick = () => openEditEvent(ev);
+      const pill = mk('div', 'ev-pill');
+      pill.style.cssText = `width:${PILL_W}px;height:${h}px;`;
+      const lbl = mk('div', 'ev-lbl');
+      lbl.style.paddingTop = Math.max(0, h/2 - 14) + 'px';
+      lbl.innerHTML = `<div class="ev-title">${ev.title}</div><div class="ev-sub">${fmtTime(ev.startH,ev.startM)} – ${fmtTime(ev.endH,ev.endM)}</div>`;
+      wrap.appendChild(pill); wrap.appendChild(lbl);
+      tl.appendChild(wrap);
+    }
+    if (ev.type === 'fixedMilestone') {
+      const r = 11;
+      const y = dayY + ev.startH * HOUR_H + ev.startM * (HOUR_H/60);
+      const wrap = mk('div', 'ev');
+      wrap.style.cssText = `top:${y - r}px;left:${LINE_X - r}px;align-items:center;`;
+      wrap.onclick = () => openEditEvent(ev);
+      const c = mk('div', 'ev-circle filled');
+      c.style.cssText = `width:${r*2}px;height:${r*2}px;`;
+      const lbl = mk('div', 'ev-lbl');
+      lbl.innerHTML = `<div class="ev-title">${ev.title}</div><div class="ev-sub">${fmtTime(ev.startH,ev.startM)}</div>`;
+      wrap.appendChild(c); wrap.appendChild(lbl);
+      tl.appendChild(wrap);
+    }
+  });
+
+  // Todos grouped and rendered together
+  if (todos.length > 0) {
+    const baseH = todos[0].startH, baseM = todos[0].startM;
+    const r = 8;
+    todos.forEach((todo, i) => {
+      const y = dayY + baseH * HOUR_H + baseM * (HOUR_H/60) + i * TODO_GAP;
+      const isDone = !!checked[todo.id];
+      const wrap = mk('div', 'ev');
+      wrap.style.cssText = `top:${y - r}px;left:${LINE_X - r}px;align-items:center;`;
+      wrap.onclick = () => openTodoGroup(ds);
+      const c = mk('div', 'ev-circle ' + (isDone ? 'done' : 'empty'));
+      c.style.cssText = `width:${r*2}px;height:${r*2}px;`;
+      if (isDone) c.innerHTML = '<span style="color:#fff;font-size:8px;font-weight:900;">✓</span>';
+      const lbl = mk('div', 'ev-lbl');
+      lbl.style.cssText = `padding-left:10px;font-size:12px;color:${isDone?'#CCC':'#333'};font-weight:500;${isDone?'text-decoration:line-through;':''}`;
+      lbl.textContent = todo.title;
+      wrap.appendChild(c); wrap.appendChild(lbl);
+      tl.appendChild(wrap);
+    });
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  HEADER UPDATE  — single source of truth: scrollTop
+// ══════════════════════════════════════════════════════════
+function updateHeader() {
+  if (activeView === 'week') return;
+  // Which day is at the top of the viewport?
+  const ds = yToDateStr(DAY.scrollTop);
+  const d = parseDate(ds);
+  document.getElementById('hdr-wd').textContent = d.toLocaleDateString('de-AT', { weekday: 'long' });
+  document.getElementById('hdr-d').textContent  = d.toLocaleDateString('de-AT', { day: 'numeric', month: 'long', year: 'numeric' });
+  const todayBtn = document.getElementById('btn-today');
+  ds === todayStr() ? todayBtn.classList.remove('show') : todayBtn.classList.add('show');
+}
+
+let _scrollRaf = false;
+DAY.addEventListener('scroll', () => {
+  if (!_scrollRaf) {
+    requestAnimationFrame(() => {
+      updateHeader();
+      // Keep weekBaseStr in sync — update silently when a new week is entered
+      const newMonday = mondayOf(yToDateStr(DAY.scrollTop));
+      if (newMonday !== weekBaseStr) {
+        weekBaseStr = newMonday;
+        // If week view is currently open, re-render it live
+        if (activeView === 'week') renderWeekView();
+      }
+      _scrollRaf = false;
+    });
+    _scrollRaf = true;
+  }
+});
+
+// ══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════════
+function scrollToDateInstant(ds) {
+  DAY.scrollTop = dateToY(ds);
+}
+function scrollToDateSmooth(ds) {
+  DAY.scrollTo({ top: dateToY(ds), behavior: 'smooth' });
+}
+
+function prevDay()  { scrollToDateSmooth(addDays(scrollDate(), -1)); }
+function nextDay()  { scrollToDateSmooth(addDays(scrollDate(),  1)); }
+function prevWeek() { weekBaseStr = addDays(weekBaseStr, -7); renderWeekView(); }
+function nextWeek() { weekBaseStr = addDays(weekBaseStr,  7); renderWeekView(); }
+
+function todayClick() {
+  weekBaseStr = mondayOf(todayStr());
+  scrollToDateSmooth(todayStr());
+  if (activeView === 'week') renderWeekView();
+}
+
+function setView(v) {
+  activeView = v;
+  document.getElementById('day-wrap').style.display  = v === 'day'  ? 'block' : 'none';
+  document.getElementById('week-wrap').style.display = v === 'week' ? 'block' : 'none';
+  document.getElementById('tab-day').classList.toggle('on',  v === 'day');
+  document.getElementById('tab-week').classList.toggle('on', v === 'week');
+
+  if (v === 'day') {
+    document.getElementById('btn-prev').onclick = prevDay;
+    document.getElementById('btn-next').onclick = nextDay;
+    updateHeader();
+  } else {
+    document.getElementById('btn-prev').onclick = prevWeek;
+    document.getElementById('btn-next').onclick = nextWeek;
+    // weekBaseStr is already current — kept in sync by scroll listener
+    renderWeekView();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  WEEK VIEW
+// ══════════════════════════════════════════════════════════
+function renderWeekView() {
+  const today = todayStr();
+  const curScrollDate = scrollDate(); // day view's current position
+  const grid = document.getElementById('wk-grid');
+  grid.innerHTML = '';
+
+  const weekEnd = addDays(weekBaseStr, 6);
+
+  // Header
+  document.getElementById('hdr-wd').textContent = 'Woche';
+  document.getElementById('hdr-d').textContent  = fmtDateShort(weekBaseStr) + ' – ' + fmtDateShort(weekEnd);
+
+  // Today button: show when displayed week doesn't contain today
+  const todayBtn = document.getElementById('btn-today');
+  (today >= weekBaseStr && today <= weekEnd) ? todayBtn.classList.remove('show') : todayBtn.classList.add('show');
+
+  // 7 day cells
+  for (let i = 0; i < 7; i++) {
+    const ds = addDays(weekBaseStr, i);
+    const d = parseDate(ds);
+    const isToday = ds === today;
+    const isCur   = ds === curScrollDate;
+    const hasEvts = events.some(e => e.date === ds);
+    const cell = mk('div', 'wk-day' + (isToday ? ' today' : isCur ? ' cur' : ''));
+    cell.innerHTML = `<span class="wk-day-wd">${d.toLocaleDateString('de-AT',{weekday:'short'})}</span><span class="wk-day-n">${d.getDate()}</span>${hasEvts ? '<div class="wk-dot"></div>' : ''}`;
+    cell.onclick = () => {
+      const targetY = dateToY(ds);
+      activeView = 'day';
+      document.getElementById('day-wrap').style.display  = 'block';
+      document.getElementById('week-wrap').style.display = 'none';
+      document.getElementById('tab-day').classList.add('on');
+      document.getElementById('tab-week').classList.remove('on');
+      document.getElementById('btn-prev').onclick = prevDay;
+      document.getElementById('btn-next').onclick = nextDay;
+      requestAnimationFrame(() => { DAY.scrollTop = targetY; updateHeader(); });
+    };
+    grid.appendChild(cell);
+  }
+
+  // Deadlines this week
+  const wdls = deadlines.filter(dl => dl.startDate <= weekEnd && dl.endDate >= weekBaseStr);
+  const dlHd = document.getElementById('wk-dl-hd');
+  const dlList = document.getElementById('wk-dl-list');
+  dlHd.textContent = wdls.length ? 'Fristen diese Woche' : 'Keine Fristen diese Woche';
+  dlList.innerHTML = '';
+  wdls.forEach(dl => {
+    const row = mk('div', 'wk-dl-row');
+    row.innerHTML = `<div class="wk-dl-name">${dl.title}</div><div class="wk-dl-bar" style="background:${dl.color};opacity:.65;"></div><div class="wk-dl-dates" style="color:${dl.color};">${fmtDateShort(dl.startDate)} – ${fmtDateShort(dl.endDate)}</div>`;
+    row.onclick = () => { setView('day'); openEditDeadline(dl); };
+    dlList.appendChild(row);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+//  ADD SHEET
+// ══════════════════════════════════════════════════════════
+function nextRoundHour(offsetH = 0) {
+  const now = new Date();
+  const h = (now.getMinutes() > 0 ? now.getHours() + 1 : now.getHours()) + offsetH;
+  return pad2(h % 24) + ':00';
+}
+
+function openAdd() {
+  const ds = scrollDate();
+  const s = nextRoundHour(0);
+  const e = nextRoundHour(1);
+  const swatches = DL_COLORS.map((c, i) =>
+    `<div class="csw${i===0?' on':''}" style="background:${c}" onclick="pickColor('${c}',this)"></div>`
+  ).join('');
+
+  sheetHTML(`
+    <div class="sh-handle"></div>
+    <div class="sh-title">Neues Event</div>
+    <div class="type-row">
+      <button class="tb on" id="tb0" onclick="pickType('fixedDuration',this)">Mit<br>Dauer</button>
+      <button class="tb" id="tb1" onclick="pickType('fixedMilestone',this)">Mile-<br>stone</button>
+      <button class="tb" id="tb2" onclick="pickType('todo',this)">To-<br>Do</button>
+      <button class="tb" id="tb3" onclick="pickType('deadline',this)">Frist</button>
+    </div>
+    <input class="fi" id="a-name" placeholder="Name…"/>
+    <div id="a-date-row"><div class="fl">Datum</div><input class="fi" type="date" id="a-date" value="${ds}"/></div>
+    <div id="a-time-row">
+      <div class="r2">
+        <div class="c1"><div class="fl">Start</div><input class="fi" type="time" id="a-start" value="${s}" style="margin-bottom:0"/></div>
+        <div class="c1" id="a-end-wrap"><div class="fl">Ende</div><input class="fi" type="time" id="a-end" value="${e}" style="margin-bottom:0"/></div>
+      </div>
+    </div>
+    <div id="a-dl-row" style="display:none">
+      <div class="r2">
+        <div class="c1"><div class="fl">Von</div><input class="fi" type="date" id="a-dl-start" value="${ds}" style="margin-bottom:0"/></div>
+        <div class="c1"><div class="fl">Bis</div><input class="fi" type="date" id="a-dl-end" value="${addDays(ds,7)}" style="margin-bottom:0"/></div>
+      </div>
+    </div>
+    <div id="a-color-row" style="display:none;margin-top:8px"><div class="fl">Farbe</div><div class="c-row" style="margin-top:5px">${swatches}</div></div>
+    <div id="a-notes-row" style="margin-top:6px"><input class="fi" id="a-notes" placeholder="Notizen (optional)" style="margin-bottom:0"/></div>
+    <div class="btn-row" style="margin-top:10px">
+      <button class="bc" onclick="closeSheet()">Abbrechen</button>
+      <button class="bs" onclick="doAdd()">Hinzufügen</button>
+    </div>
+  `);
+  window._addType = 'fixedDuration';
+  window._addColor = DL_COLORS[0];
+  openSheet();
+}
+
+function pickType(t, el) {
+  window._addType = t;
+  document.querySelectorAll('.tb').forEach(b => b.classList.remove('on'));
+  el.classList.add('on');
+  const isDL = t === 'deadline', isTodo = t === 'todo';
+  document.getElementById('a-date-row').style.display  = isDL ? 'none' : 'block';
+  document.getElementById('a-time-row').style.display  = (isDL || isTodo) ? 'none' : 'block';
+  document.getElementById('a-dl-row').style.display    = isDL ? 'block' : 'none';
+  document.getElementById('a-color-row').style.display = isDL ? 'block' : 'none';
+  document.getElementById('a-notes-row').style.display = isDL ? 'none' : 'block';
+  const ew = document.getElementById('a-end-wrap');
+  if (ew) ew.style.display = t === 'fixedDuration' ? 'block' : 'none';
+}
+
+function pickColor(c, el) {
+  window._addColor = c;
+  document.querySelectorAll('.csw').forEach(s => s.classList.remove('on'));
+  el.classList.add('on');
+}
+
+function doAdd() {
+  const title = v('a-name'); if (!title) return;
+  const type = window._addType;
+  if (type === 'deadline') {
+    deadlines.push({ id: 'dl' + Date.now(), title, startDate: v('a-dl-start'), endDate: v('a-dl-end'), color: window._addColor });
+    persist(); closeSheet(); rebuildTimeline();
+    return;
+  }
+  const date = v('a-date');
+  const notes = v('a-notes');
+  const ev = { id: Date.now(), type, title, date, notes };
+  if (type !== 'todo') {
+    const [sh, sm] = (v('a-start') || '12:00').split(':').map(Number);
+    ev.startH = sh; ev.startM = sm;
+    if (type === 'fixedDuration') {
+      const [eh, em] = (v('a-end') || '13:00').split(':').map(Number);
+      ev.endH = eh; ev.endM = em;
+    }
+  } else {
+    const last = events.filter(e => e.type === 'todo' && e.date === date)
+      .sort((a,b) => a.startH*60+a.startM - (b.startH*60+b.startM)).pop();
+    ev.startH = last ? last.startH : 9; ev.startM = last ? last.startM : 0;
+  }
+  events.push(ev);
+  persist(); closeSheet(); rebuildTimeline();
+}
+
+// ══════════════════════════════════════════════════════════
+//  EDIT EVENT
+// ══════════════════════════════════════════════════════════
+function openEditEvent(ev) {
+  const isDur = ev.type === 'fixedDuration';
+  const isMs  = ev.type === 'fixedMilestone';
+  sheetHTML(`
+    <div class="sh-handle"></div>
+    <div class="sh-badge">${isDur ? 'Fixpunkt mit Dauer' : 'Milestone'}</div>
+    <div class="sh-title">${ev.title}</div>
+    <div class="fl">Name</div><input class="fi" id="e-name" value="${ev.title}"/>
+    <div class="fl">Datum</div><input class="fi" type="date" id="e-date" value="${ev.date}"/>
+    <div class="r2">
+      <div class="c1"><div class="fl">Start</div><input class="fi" type="time" id="e-start" value="${fmtTime(ev.startH,ev.startM)}" style="margin-bottom:0"/></div>
+      ${isDur ? `<div class="c1"><div class="fl">Ende</div><input class="fi" type="time" id="e-end" value="${fmtTime(ev.endH,ev.endM)}" style="margin-bottom:0"/></div>` : ''}
+    </div>
+    <div class="fl" style="margin-top:10px">Notizen</div>
+    <input class="fi" id="e-notes" value="${ev.notes || ''}"/>
+    <div class="btn-row">
+      <button class="bc" onclick="closeSheet()">Abbrechen</button>
+      <button class="bs" onclick="saveEvent(${ev.id},'${ev.type}')">Speichern</button>
+    </div>
+    <button class="bdel" onclick="deleteEvent(${ev.id})">Löschen</button>
+  `);
+  openSheet();
+}
+
+function saveEvent(id, type) {
+  const idx = events.findIndex(e => e.id === id); if (idx < 0) return;
+  const title = v('e-name'); if (!title) return;
+  events[idx] = { ...events[idx], title, date: v('e-date'), notes: v('e-notes') };
+  const [sh, sm] = (v('e-start') || '12:00').split(':').map(Number);
+  events[idx].startH = sh; events[idx].startM = sm;
+  if (type === 'fixedDuration') {
+    const [eh, em] = (v('e-end') || '13:00').split(':').map(Number);
+    events[idx].endH = eh; events[idx].endM = em;
+  }
+  persist(); closeSheet(); rebuildTimeline();
+}
+
+function deleteEvent(id) {
+  events = events.filter(e => e.id !== id);
+  persist(); closeSheet(); rebuildTimeline();
+}
+
+// ══════════════════════════════════════════════════════════
+//  TODO GROUP SHEET
+// ══════════════════════════════════════════════════════════
+function openTodoGroup(ds) {
+  const todos = events.filter(e => e.type === 'todo' && e.date === ds)
+    .sort((a,b) => a.startH*60+a.startM - (b.startH*60+b.startM));
+  renderTodoSheet(ds, todos);
+}
+
+function renderTodoSheet(ds, todos) {
+  const rows = todos.map(t => {
+    const done = !!checked[t.id];
+    return `<div class="todo-row">
+      <div class="tcb${done?' on':''}" onclick="toggleTodo(${t.id},'${ds}')"></div>
+      <span class="ev-todo-txt${done?' struck':''}">${t.title}</span>
+      <button class="tdel" onclick="deleteTodo(${t.id},'${ds}')">✕</button>
+    </div>`;
+  }).join('');
+  sheetHTML(`
+    <div class="sh-handle"></div>
+    <div class="sh-badge">ToDos</div>
+    <div class="sh-title">Aufgabenliste</div>
+    ${rows}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input class="fi" id="new-todo" placeholder="Neue Aufgabe…" style="margin-bottom:0;flex:1" onkeydown="if(event.key==='Enter')addTodoInSheet('${ds}')"/>
+      <button class="bs" style="flex:0 0 auto;padding:11px 16px" onclick="addTodoInSheet('${ds}')">+</button>
+    </div>
+    <button class="bf" onclick="closeSheet()">Fertig</button>
+  `);
+  openSheet();
+}
+
+function toggleTodo(id, ds) {
+  checked[id] = !checked[id];
+  persist();
+  rebuildTimeline();
+  openTodoGroup(ds);
+}
+
+function deleteTodo(id, ds) {
+  events = events.filter(e => e.id !== id);
+  delete checked[id];
+  persist();
+  rebuildTimeline();
+  const remaining = events.filter(e => e.type === 'todo' && e.date === ds);
+  remaining.length > 0 ? openTodoGroup(ds) : closeSheet();
+}
+
+function addTodoInSheet(ds) {
+  const inp = document.getElementById('new-todo');
+  const title = inp.value.trim(); if (!title) return;
+  const last = events.filter(e => e.type === 'todo' && e.date === ds)
+    .sort((a,b) => a.startH*60+a.startM - (b.startH*60+b.startM)).pop();
+  events.push({ id: Date.now(), type: 'todo', title, date: ds,
+    startH: last ? last.startH : 9, startM: last ? last.startM : 0 });
+  persist();
+  rebuildTimeline();
+  inp.value = '';
+  openTodoGroup(ds);
+}
+
+// ══════════════════════════════════════════════════════════
+//  EDIT DEADLINE
+// ══════════════════════════════════════════════════════════
+function openEditDeadline(dl) {
+  const days = Math.round((parseDate(dl.endDate) - parseDate(dl.startDate)) / 86400000) + 1;
+  sheetHTML(`
+    <div class="sh-handle"></div>
+    <div class="sh-badge">Frist</div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+      <div style="width:10px;height:34px;border-radius:99px;background:${dl.color};opacity:.8;flex-shrink:0"></div>
+      <div class="sh-title" style="margin-bottom:0">${dl.title}</div>
+    </div>
+    <div class="fl">Name</div><input class="fi" id="dl-name" value="${dl.title}"/>
+    <div class="r2">
+      <div class="c1"><div class="fl">Von</div><input class="fi" type="date" id="dl-start" value="${dl.startDate}" style="margin-bottom:0"/></div>
+      <div class="c1"><div class="fl">Bis</div><input class="fi" type="date" id="dl-end" value="${dl.endDate}" style="margin-bottom:0"/></div>
+    </div>
+    <div class="stat-row" style="margin-top:12px">
+      <div class="stat"><div class="stat-l">Von</div><div class="stat-v" style="font-size:12px">${fmtDateShort(dl.startDate)}</div></div>
+      <div class="stat"><div class="stat-l">Bis</div><div class="stat-v" style="font-size:12px">${fmtDateShort(dl.endDate)}</div></div>
+      <div class="stat"><div class="stat-l">Tage</div><div class="stat-v">${days}</div></div>
+    </div>
+    <div class="btn-row">
+      <button class="bc" onclick="closeSheet()">Abbrechen</button>
+      <button class="bs" onclick="saveDeadline('${dl.id}')">Speichern</button>
+    </div>
+    <button class="bdel" onclick="deleteDeadline('${dl.id}')">Löschen</button>
+  `);
+  openSheet();
+}
+
+function saveDeadline(id) {
+  const idx = deadlines.findIndex(d => d.id === id); if (idx < 0) return;
+  deadlines[idx] = { ...deadlines[idx], title: v('dl-name') || deadlines[idx].title,
+    startDate: v('dl-start'), endDate: v('dl-end') };
+  persist(); closeSheet(); rebuildTimeline();
+}
+
+function deleteDeadline(id) {
+  deadlines = deadlines.filter(d => d.id !== id);
+  persist(); closeSheet(); rebuildTimeline();
+}
+
+// ══════════════════════════════════════════════════════════
+//  SHEET HELPERS
+// ══════════════════════════════════════════════════════════
+function sheetHTML(html) { document.getElementById('sheet').innerHTML = html; }
+function openSheet()  { document.getElementById('overlay').classList.add('open'); }
+function closeSheet() { document.getElementById('overlay').classList.remove('open'); }
+function overlayClick(e) { if (e.target === document.getElementById('overlay')) closeSheet(); }
+function v(id) { const el = document.getElementById(id); return el ? el.value.trim() : ''; }
+
+// ══════════════════════════════════════════════════════════
+//  EXPORT
+// ══════════════════════════════════════════════════════════
+function doExport() {
+  const b = new Blob([JSON.stringify({ events, deadlines }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b);
+  a.download = 'timeline_export.json'; a.click();
+}
+
+// ══════════════════════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════════════════════
+function mk(tag, cls = '') {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  return el;
+}
+
+// ══════════════════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════════════════
+document.getElementById('btn-prev').onclick = prevDay;
+document.getElementById('btn-next').onclick = nextDay;
+
+DAY.scrollTop = dateToY(todayStr());
+weekBaseStr = mondayOf(yToDateStr(DAY.scrollTop));
+updateHeader();
+
+// Load from Supabase — only data source
+initRemote();
+
+// Refresh now-indicator every minute
+setInterval(() => rebuildTimeline(), 60000);
+</script>
+</body>
+</html>
