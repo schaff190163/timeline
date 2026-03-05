@@ -230,31 +230,61 @@ function scrollDate() {
 // ══════════════════════════════════════════════════════════
 const SB_URL = 'https://lwdbnfqirtxtudkjxwdv.supabase.co';
 const SB_KEY = 'sb_publishable_tDG-B8-RGTrUiWR53pAdWA_Qfls_FAD';
-const SB_H = { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SB_KEY };
+const SB_H = {
+  'Content-Type': 'application/json',
+  'apikey': SB_KEY,
+  'Authorization': 'Bearer ' + SB_KEY
+};
 
 async function sbGet(key) {
-  const r = await fetch(`${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}&key=eq.${key}&select=value`, { headers: SB_H });
-  if (!r.ok) throw new Error(`sbGet ${key}: ${r.status}`);
+  const r = await fetch(
+    `${SB_URL}/rest/v1/timeline_data?key=eq.${encodeURIComponent(key)}&select=value`,
+    { headers: SB_H }
+  );
+  if (!r.ok) throw new Error(`sbGet ${r.status}: ${await r.text()}`);
   const j = await r.json();
   if (!j || !j[0]) return null;
   const val = j[0].value;
-  if (typeof val === 'string') return JSON.parse(val);
-  return val;
+  return typeof val === 'string' ? JSON.parse(val) : val;
 }
 
 async function debugDB() {
-  const r = await fetch(`${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}&select=key,value`, { headers: SB_H });
+  const r = await fetch(`${SB_URL}/rest/v1/timeline_data?select=key,value`, { headers: SB_H });
   const j = await r.json();
-  alert('DB Inhalt:\n' + JSON.stringify(j, null, 2).substring(0, 1000));
+  alert('DB:\n' + JSON.stringify(j, null, 2).substring(0, 1500));
 }
+
 async function sbSet(key, value) {
+  const r = await fetch(`${SB_URL}/rest/v1/timeline_data`, {
+    method: 'POST',
+    headers: { ...SB_H, 'Prefer': 'resolution=merge-duplicates' },
+    body: JSON.stringify({ key, value: JSON.stringify(value) })
+  });
+  if (!r.ok) console.error('sbSet failed:', r.status, await r.text());
+}
+
+async function initRemote() {
+  syncDot('saving');
   try {
-    await fetch(`${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}`, {
-      method: 'POST',
-      headers: { ...SB_H, Prefer: 'resolution=merge-duplicates' },
-      body: JSON.stringify({ key, value: JSON.stringify(value) })
-    });
-  } catch {}
+    const rem    = await sbGet('timeline_data');
+    const remChk = await sbGet('timeline_checked');
+    console.log('loaded:', rem, remChk);
+    if (rem && Array.isArray(rem.events)) {
+      events    = rem.events;
+      deadlines = rem.deadlines || [];
+    }
+    if (remChk && typeof remChk === 'object') {
+      checked = remChk;
+    }
+    syncDot('ok');
+  } catch(e) {
+    console.error('initRemote failed:', e.message);
+    syncDot('error');
+  }
+  rebuildTimeline();
+  DAY.scrollTop = dateToY(todayStr());
+  weekBaseStr = mondayOf(yToDateStr(DAY.scrollTop));
+  updateHeader();
 }
 
 function syncDot(state) {
@@ -266,15 +296,11 @@ function syncDot(state) {
 // ══════════════════════════════════════════════════════════
 //  DATA
 // ══════════════════════════════════════════════════════════
-
-
 const DL_COLORS = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FECA57','#FF9FF3','#54A0FF','#A29BFE'];
 
-function loadLocal() { return { events: [], deadlines: [] }; }
-function saveLocal() { /* no-op: Supabase is the only store */ }
-
-let { events, deadlines } = loadLocal();
-let checked = {};
+let events    = [];
+let deadlines = [];
+let checked   = {};
 
 let _sbTimer = null;
 function persist() {
@@ -286,41 +312,6 @@ function persist() {
     _sbTimer = null;
     syncDot('ok');
   }, 800);
-}
-
-async function initRemote() {
-  syncDot('saving');
-  try {
-    const url = `${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}&key=eq.timeline_data&select=value`;
-    const r = await fetch(url, { headers: SB_H });
-    console.log('Status:', r.status);
-    const j = await r.json();
-    console.log('RAW RESPONSE:', JSON.stringify(j));
-    if (j && j[0] && j[0].value) {
-      const parsed = typeof j[0].value === 'string' ? JSON.parse(j[0].value) : j[0].value;
-      console.log('PARSED:', parsed);
-      if (Array.isArray(parsed.events)) {
-        events = parsed.events;
-        deadlines = parsed.deadlines || [];
-        console.log('EVENTS SET:', events.length);
-      }
-    }
-    const url2 = `${SB_URL}/rest/v1/timeline_data?apikey=${SB_KEY}&key=eq.timeline_checked&select=value`;
-    const r2 = await fetch(url2, { headers: SB_H });
-    const j2 = await r2.json();
-    if (j2 && j2[0] && j2[0].value) {
-      checked = typeof j2[0].value === 'string' ? JSON.parse(j2[0].value) : j2[0].value;
-    }
-    syncDot('ok');
-  } catch(e) {
-    console.error('FETCH ERROR:', e);
-    syncDot('error');
-  }
-  console.log('REBUILDING with', events.length, 'events');
-  rebuildTimeline();
-  DAY.scrollTop = dateToY(todayStr());
-  weekBaseStr = mondayOf(yToDateStr(DAY.scrollTop));
-  updateHeader();
 }
 
 // ══════════════════════════════════════════════════════════
